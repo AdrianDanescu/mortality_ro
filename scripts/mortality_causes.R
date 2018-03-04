@@ -1,15 +1,19 @@
 
 # Libraries ---------------------------------------------------------------
-library(ggplot2)
+
 library(data.table)
-library(readxl)
 library(dplyr)
+
 library(stringr)
-library(directlabels)
+
 library(broom)
 library(purrr)
 library(tidyr)
+
+library(ggplot2)
 library(gganimate)
+library(directlabels)
+library(shiny)
 
 
 # Read Data ---------------------------------------------------------------
@@ -245,6 +249,75 @@ for (i in seq_along(subset_diseases[1:7])) {
             ani.height = 800)
   # animation::ani.options()
   
+  
+# shiny app ####
+  
+  
+  counties <- sort(unique(mort$county))
+
+  
+  # Define UI for application that plots features of movies
+  ui <- fluidPage(
+    
+    # Sidebar layout with a input and output definitions
+    sidebarLayout(
+      
+      # Inputs
+      sidebarPanel(
+        
+        HTML("In Romania there is a strong positive trend in tumor-related mortality"),
+        
+        # break for visual separation
+        br(), br(),
+        
+        # Select variable for y-axis
+        selectInput(inputId = "counties",
+                    label = "Select your county:",
+                    choices = counties,
+                    selected = "Municipiul Bucuresti")
+        
+      ),
+      
+      # Outputs
+      mainPanel(
+        plotOutput(outputId = "lineplot")
+      )
+    )
+  )
+  
+  # Define server function required to create the scatterplot
+  server <- function(input, output) {
+    
+    # Create scatterplot
+    output$lineplot <- renderPlot({
+      req(input$counties)
+      mort_tum <- mort %>% 
+        filter(disease %in% subset_diseases[1]) 
+      
+      mort_tum %>% 
+        filter(county %in% input$counties) %>% 
+        ggplot(aes(year, incidence)) +
+        geom_line(data = mort_tum, aes(group = county), alpha = 1/3, col = "gray70") +
+        geom_smooth(data = mort_tum, aes(group = 1), method = lm, se = F, 
+                    col = "gray40", lwd = 2) +
+        geom_smooth(aes(group = county), method = lm, se = F, 
+                    col = "gray70", alpha = 0.1, lwd = 1.25) +
+        geom_line(aes(group = county), col = "red", lwd = 1) +
+        scale_x_continuous(limits = c(1990, 2018),
+                           breaks = seq(1990, 2020, by = 5)) +
+        scale_y_continuous(limits = c(8, 30), 
+                           name = "Incidence per 10,000 persons",
+                           breaks = seq(10, 35, by = 5)) +
+        guides(color = "none") +
+        ggtitle(label = paste0("County: ", unique(input$counties)), 
+                subtitle = "Time-series of tumor-related mortality") +
+        theme_minimal()
+    })
+    
+  }
+  
+  # Create the Shiny app object
+  shinyApp(ui = ui, server = server)
   
 
 # Build map ---------------------------------------------------------------
